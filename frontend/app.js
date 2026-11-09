@@ -153,7 +153,103 @@ const Icons = {
   arrowDown: `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke-width="2" stroke-linecap="round"/><polyline points="19 12 12 19 5 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   arrowUp: `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5" stroke-width="2" stroke-linecap="round"/><polyline points="5 12 12 5 19 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   search: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2" stroke-linecap="round"/></svg>`,
+  download: `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke-width="2"/><polyline points="7 10 12 15 17 10" stroke-width="2"/><line x1="12" y1="15" x2="12" y2="3" stroke-width="2"/></svg>`,
+  terminal: `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5" stroke-width="2"/><line x1="12" y1="19" x2="20" y2="19" stroke-width="2"/></svg>`,
+  volume: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke-width="2"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" stroke-width="2"/></svg>`,
+  volumeMute: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke-width="2"/><line x1="23" y1="9" x2="17" y2="15" stroke-width="2"/><line x1="17" y1="9" x2="23" y2="15" stroke-width="2"/></svg>`,
 };
+
+const SoundFX = {
+  ctx: null,
+  enabled: typeof localStorage !== 'undefined' ? localStorage.getItem('pulseguard_sound') !== 'muted' : true,
+  init() {
+    if (!this.ctx && typeof AudioContext !== 'undefined') {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+  },
+  toggle() {
+    this.enabled = !this.enabled;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('pulseguard_sound', this.enabled ? 'enabled' : 'muted');
+    }
+    const btn = document.getElementById('soundToggleBtn');
+    if (btn) {
+      btn.innerHTML = this.enabled ? Icons.volume : Icons.volumeMute;
+      btn.title = this.enabled ? 'Sound effects enabled' : 'Sound effects muted';
+    }
+    if (this.enabled) this.play('success');
+    return this.enabled;
+  },
+  play(type = 'click') {
+    if (!this.enabled) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      const now = this.ctx.currentTime;
+      if (type === 'click') {
+        osc.frequency.setValueAtTime(540, now);
+        osc.frequency.exponentialRampToValueAtTime(280, now + 0.05);
+        gain.gain.setValueAtTime(0.03, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      } else if (type === 'success') {
+        osc.frequency.setValueAtTime(480, now);
+        osc.frequency.exponentialRampToValueAtTime(760, now + 0.12);
+        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      }
+    } catch {}
+  }
+};
+
+window.toggleSound = () => SoundFX.toggle();
+
+function animateWithGsap() {
+  if (typeof gsap === 'undefined') return;
+  try {
+    gsap.fromTo('.monitor-card',
+      { opacity: 0, y: 14, scale: 0.98 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.42, stagger: 0.04, ease: 'power2.out', clearProps: 'transform,opacity' }
+    );
+    gsap.fromTo('.stats-card',
+      { opacity: 0, y: 8 },
+      { opacity: 1, y: 0, duration: 0.38, stagger: 0.04, ease: 'power2.out', clearProps: 'transform,opacity' }
+    );
+  } catch {}
+}
+
+function animateModalOpen() {
+  if (typeof gsap === 'undefined') return;
+  try {
+    const box = document.querySelector('#modal-root [onclick="event.stopPropagation()"]');
+    if (box) {
+      gsap.fromTo(box,
+        { opacity: 0, scale: 0.92, y: 15 },
+        { opacity: 1, scale: 1, y: 0, duration: 0.35, ease: 'back.out(1.4)', clearProps: 'transform,opacity' }
+      );
+    }
+  } catch {}
+}
+
+function initSpotlightCards() {
+  document.querySelectorAll('.spotlight-card').forEach((card) => {
+    card.onmousemove = (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      card.style.setProperty('--mouse-x', `${x}px`);
+      card.style.setProperty('--mouse-y', `${y}px`);
+    };
+  });
+}
 
 function isFormModalOpen() {
   return state.isNewModalOpen || state.showNewIncidentModal || state.activeIncidentId !== null || state.showNotifModal;
@@ -240,6 +336,8 @@ function render() {
 
   attachEvents();
   renderModals();
+  initSpotlightCards();
+  animateWithGsap();
 }
 
 function renderDashboardBackground() {
@@ -267,6 +365,7 @@ function renderDashboardBackground() {
     const tabContainer = document.getElementById('tabContentContainer');
     if (tabContainer) tabContainer.innerHTML = renderAlertsTab();
   }
+  initSpotlightCards();
 }
 
 function renderPublicPageOnly() {
@@ -288,7 +387,14 @@ function renderNavbar(activeIncidentsCount) {
             <div>
               <div class="flex items-center gap-2">
                 <span class="text-base font-extrabold tracking-tight text-white">PulseGuard</span>
-                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">ONLINE</span>
+                <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <span class="relative flex h-2 w-2">
+                    <span class="radar-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="radar-ping-delay absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span class="text-[9px] font-mono font-bold tracking-wider">ONLINE</span>
+                </div>
               </div>
               <p class="text-[10px] text-slate-400 font-medium">Uptime & Health Monitor</p>
             </div>
@@ -308,7 +414,10 @@ function renderNavbar(activeIncidentsCount) {
           </nav>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <button onclick="window.toggleSound()" id="soundToggleBtn" title="${SoundFX.enabled ? 'Sound effects enabled (Click to mute)' : 'Sound effects muted (Click to unmute)'}" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+            ${SoundFX.enabled ? Icons.volume : Icons.volumeMute}
+          </button>
           <button onclick="window.switchTab('status-page')" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 transition-colors">
             <span>Public Status Page</span>
             ${Icons.externalLink}
@@ -334,7 +443,7 @@ function renderStatsCards() {
 
   return `
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      <div class="glass-panel rounded-2xl p-4 flex flex-col justify-between">
+      <div class="glass-panel stats-card spotlight-card rounded-2xl p-4 flex flex-col justify-between">
         <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
           <span>Monitors</span>
           <span class="text-slate-400">${Icons.activity}</span>
@@ -345,7 +454,7 @@ function renderStatsCards() {
         </div>
       </div>
 
-      <div class="glass-panel border-emerald-500/30 rounded-2xl p-4 flex flex-col justify-between">
+      <div class="glass-panel stats-card spotlight-card border-emerald-500/30 rounded-2xl p-4 flex flex-col justify-between">
         <div class="flex items-center justify-between text-emerald-400 text-xs font-semibold uppercase tracking-wider">
           <span>Operational</span>
           <span>${Icons.checkCircle}</span>
@@ -356,7 +465,7 @@ function renderStatsCards() {
         </div>
       </div>
 
-      <div class="glass-panel ${stats.downMonitors > 0 ? 'border-rose-500/40 bg-rose-950/10' : 'border-slate-800'} rounded-2xl p-4 flex flex-col justify-between">
+      <div class="glass-panel stats-card spotlight-card ${stats.downMonitors > 0 ? 'border-rose-500/40 bg-rose-950/10' : 'border-slate-800'} rounded-2xl p-4 flex flex-col justify-between">
         <div class="flex items-center justify-between ${stats.downMonitors > 0 ? 'text-rose-400' : 'text-slate-400'} text-xs font-semibold uppercase tracking-wider">
           <span>Outages</span>
           <span>${Icons.xCircle}</span>
@@ -367,7 +476,7 @@ function renderStatsCards() {
         </div>
       </div>
 
-      <div class="glass-panel rounded-2xl p-4 flex flex-col justify-between">
+      <div class="glass-panel stats-card spotlight-card rounded-2xl p-4 flex flex-col justify-between">
         <div class="flex items-center justify-between text-cyan-400 text-xs font-semibold uppercase tracking-wider">
           <span>24h Uptime</span>
           <span>${Icons.zap}</span>
@@ -378,7 +487,7 @@ function renderStatsCards() {
         </div>
       </div>
 
-      <div class="glass-panel rounded-2xl p-4 flex flex-col justify-between">
+      <div class="glass-panel stats-card spotlight-card rounded-2xl p-4 flex flex-col justify-between">
         <div class="flex items-center justify-between text-amber-400 text-xs font-semibold uppercase tracking-wider">
           <span>Avg Latency</span>
           <span>${Icons.clock}</span>
@@ -410,6 +519,10 @@ function getFilteredMonitors() {
 
 function renderMonitorsTab() {
   const groups = Array.from(new Set(state.monitors.map((m) => m.group || 'General')));
+  const totalCount = state.monitors.length;
+  const upCount = state.monitors.filter((m) => m.status === 'UP').length;
+  const downCount = state.monitors.filter((m) => m.status === 'DOWN').length;
+  const pausedCount = state.monitors.filter((m) => m.paused).length;
 
   return `
     <div class="space-y-5">
@@ -429,18 +542,23 @@ function renderMonitorsTab() {
 
         <div class="flex items-center gap-2 flex-wrap">
           <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-1 flex items-center gap-1 text-xs font-semibold">
-            ${['ALL', 'UP', 'DOWN', 'PAUSED']
-              .map(
-                (st) => `
-              <button onclick="window.setStatusFilter('${st}')" class="px-3 py-1 rounded-lg transition-all ${
-                state.statusFilter === st ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-              }">
-                ${st === 'ALL' ? 'All' : st === 'UP' ? 'Up' : st === 'DOWN' ? 'Down' : 'Paused'}
-              </button>
-            `
-              )
-              .join('')}
+            <button onclick="window.setStatusFilter('ALL')" class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 ${state.statusFilter === 'ALL' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}">
+              <span>All</span> <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800/80 border border-slate-700/80">${totalCount}</span>
+            </button>
+            <button onclick="window.setStatusFilter('UP')" class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 ${state.statusFilter === 'UP' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> <span>Up</span> <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">${upCount}</span>
+            </button>
+            <button onclick="window.setStatusFilter('DOWN')" class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 ${state.statusFilter === 'DOWN' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}">
+              <span class="w-2 h-2 rounded-full bg-rose-400"></span> <span>Down</span> <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">${downCount}</span>
+            </button>
+            <button onclick="window.setStatusFilter('PAUSED')" class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 ${state.statusFilter === 'PAUSED' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}">
+              <span>Paused</span> <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800/80 border border-slate-700/80">${pausedCount}</span>
+            </button>
           </div>
+
+          <button onclick="window.exportSlaCsv()" title="Export all monitors SLA as CSV" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900/90 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-all flex items-center gap-1.5 shadow-sm">
+            ${Icons.download} <span>Export SLA</span>
+          </button>
 
           ${
             groups.length > 0
@@ -495,7 +613,7 @@ function renderMonitorCard(monitor) {
   const heartbeats = state.heartbeatsMap[monitor.id] || [];
 
   return `
-    <div onclick="window.openMonitorDetail('${monitor.id}')" class="glass-panel rounded-2xl p-5 transition-all duration-200 cursor-pointer hover:border-slate-700 shadow-sm group">
+    <div onclick="window.openMonitorDetail('${monitor.id}')" class="glass-panel monitor-card spotlight-card rounded-2xl p-5 transition-all duration-200 cursor-pointer hover:border-slate-700 shadow-sm group">
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div class="flex items-start gap-3.5 min-w-0">
           <div class="relative mt-1 flex-shrink-0">
@@ -1272,6 +1390,7 @@ function renderModals() {
         </div>
       </div>
     `;
+    animateModalOpen();
     return;
   }
 
@@ -1296,7 +1415,13 @@ function renderModals() {
                 <div class="text-xs text-slate-400 font-mono mt-0.5">${escapeHtml(mon.url)}</div>
               </div>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <button onclick="window.copyCurl('${mon.id}')" id="copyCurlBtn" title="Copy cURL terminal command" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors">
+                ${Icons.terminal} <span>Copy cURL</span>
+              </button>
+              <button onclick="window.exportSlaCsv('${mon.id}')" title="Export monitor SLA as CSV" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors">
+                ${Icons.download} <span>SLA CSV</span>
+              </button>
               <button onclick="window.checkNow('${mon.id}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 flex items-center gap-1.5">
                 ${Icons.refresh} <span>Check Now</span>
               </button>
@@ -1404,6 +1529,7 @@ function renderModals() {
         </div>
       </div>
     `;
+    animateModalOpen();
     return;
   }
 
@@ -1436,6 +1562,7 @@ function renderModals() {
         </div>
       </div>
     `;
+    animateModalOpen();
     return;
   }
 
@@ -1469,6 +1596,7 @@ function renderModals() {
         </div>
       </div>
     `;
+    animateModalOpen();
     return;
   }
 
@@ -1533,6 +1661,7 @@ function renderModals() {
         </div>
       </div>
     `;
+    animateModalOpen();
     return;
   }
 
@@ -1619,7 +1748,64 @@ window.closeModals = () => {
   renderModals();
 };
 
+window.copyCurl = (monitorId) => {
+  SoundFX.play('click');
+  const mon = state.monitors.find((m) => m.id === monitorId) || state.selectedMonitor;
+  if (!mon) return;
+  const curlCmd = `curl -i -X ${mon.method || 'GET'} "${mon.url}" -H "User-Agent: PulseGuard-UptimeBot/1.0"`;
+  navigator.clipboard.writeText(curlCmd).then(() => {
+    SoundFX.play('success');
+    const btn = document.getElementById('copyCurlBtn');
+    if (btn) {
+      btn.innerHTML = `${Icons.check} <span class="text-emerald-400 font-bold">Copied!</span>`;
+      setTimeout(() => {
+        if (btn) btn.innerHTML = `${Icons.terminal} <span>Copy cURL</span>`;
+      }, 2000);
+    }
+  });
+};
+
+window.exportSlaCsv = (monitorId) => {
+  SoundFX.play('click');
+  const monitorsToExport = monitorId
+    ? state.monitors.filter((m) => m.id === monitorId)
+    : state.monitors;
+
+  if (monitorsToExport.length === 0) {
+    alert('No monitor data available to export.');
+    return;
+  }
+
+  const headers = ['Monitor Name', 'Target URL', 'Status', 'Method', 'Interval (s)', '24h Uptime (%)', '30d Uptime (%)', 'Avg Latency (ms)', 'SSL Expiry', 'Last Checked'];
+  const rows = monitorsToExport.map((m) => [
+    `"${(m.name || '').replace(/"/g, '""')}"`,
+    `"${(m.url || '').replace(/"/g, '""')}"`,
+    m.status || 'PENDING',
+    m.method || 'GET',
+    m.interval || 60,
+    m.uptime24h || 100,
+    m.uptime30d || 100,
+    m.avgLatency24h || 0,
+    m.sslInfo && m.sslInfo.validTo ? new Date(m.sslInfo.validTo).toISOString().split('T')[0] : 'N/A',
+    m.lastChecked ? new Date(m.lastChecked).toISOString() : 'Never'
+  ]);
+
+  const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  const filename = monitorId && monitorsToExport[0]
+    ? `pulseguard-sla-${monitorsToExport[0].name.toLowerCase().replace(/[^a-z0-9]/g, '-')}.csv`
+    : `pulseguard-sla-report-${new Date().toISOString().split('T')[0]}.csv`;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  SoundFX.play('success');
+};
+
 window.checkNow = async (id) => {
+  SoundFX.play('click');
   state.checkingMonitorId = id;
   const list = document.getElementById('monitorsListContainer');
   if (list) list.innerHTML = renderMonitorsCardsList();
@@ -1628,6 +1814,7 @@ window.checkNow = async (id) => {
   const hbs = await api.getHeartbeats(id, 35);
   state.heartbeatsMap[id] = hbs;
   state.checkingMonitorId = null;
+  SoundFX.play('success');
   await fetchAllData();
 };
 

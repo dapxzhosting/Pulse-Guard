@@ -158,3 +158,52 @@ select:focus {
     animation-iteration-count: 1;
   }
 }
+
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.spotlight-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  top: var(--mouse-y, -200px);
+  left: var(--mouse-x, -200px);
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.14) 0%, rgba(16, 185, 129, 0) 70%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 0;
+}
+
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+.spotlight-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes radarPing {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+
+.radar-ping {
+  animation: radarPing 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.radar-ping-delay {
+  animation: radarPing 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  animation-delay: 1.1s;
+}
