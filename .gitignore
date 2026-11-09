@@ -1,0 +1,7 @@
+node_modules
+dist
+public/app.min.js
+data/db.json.tmp
+data/db.json
+.env
+.DS_Store
