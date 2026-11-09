@@ -129,8 +129,8 @@ Ketika server atau API Anda mengalami gangguan (*downtime*) atau penurunan perfo
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/username-anda/pulseguard-uptime.git
-cd pulseguard-uptime
+git clone https://github.com/dapxzhosting/Pulse-Guard.git
+cd Pulse-Guard
 ```
 
 ### 2. Konfigurasi Environment (Opsional)
