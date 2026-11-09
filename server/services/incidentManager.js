@@ -92,6 +92,11 @@ export async function handleStateTransition(monitor, newStatus, checkDetails) {
 }
 
 async function notifyChannels(monitor, event) {
+  if (monitor.maintenanceUntil && new Date(monitor.maintenanceUntil).getTime() > Date.now()) {
+    console.log(`[ALERT SUPPRESSED] Monitor "${monitor.name}" is in maintenance mode until ${monitor.maintenanceUntil}`);
+    return;
+  }
+
   const channelIds = monitor.notificationChannels || [];
   const allChannels = db.getNotifications();
   const targetChannels = channelIds.length > 0

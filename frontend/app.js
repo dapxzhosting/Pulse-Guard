@@ -610,6 +610,7 @@ function renderMonitorCard(monitor) {
   const isDown = monitor.status === 'DOWN';
   const isPaused = monitor.paused;
   const isChecking = state.checkingMonitorId === monitor.id;
+  const isMaintenance = monitor.maintenanceUntil && new Date(monitor.maintenanceUntil).getTime() > Date.now();
   const heartbeats = state.heartbeatsMap[monitor.id] || [];
 
   return `
@@ -647,6 +648,15 @@ function renderMonitorCard(monitor) {
                   ? `
                 <span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-medium">
                   ${escapeHtml(monitor.group)}
+                </span>
+              `
+                  : ''
+              }
+              ${
+                isMaintenance
+                  ? `
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold flex items-center gap-1">
+                  ${Icons.clock} Muted
                 </span>
               `
                   : ''
@@ -1368,6 +1378,23 @@ function renderModals() {
               <input type="text" id="mKeyword" value="${escapeHtml(m.keyword || '')}" placeholder="e.g. status: ok" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-mono"/>
             </div>
 
+            <details class="border border-slate-800 rounded-xl bg-slate-950/60 p-3 group">
+              <summary class="text-xs font-semibold text-slate-300 cursor-pointer flex items-center justify-between select-none">
+                <span class="flex items-center gap-1.5">${Icons.terminal} Advanced HTTP Options (Headers &amp; Payload)</span>
+                <span class="text-slate-500 text-[10px] group-open:rotate-180 transition-transform">▼</span>
+              </summary>
+              <div class="mt-3 space-y-3 pt-3 border-t border-slate-800/80">
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Custom Headers (JSON Object)</label>
+                  <textarea id="mHeaders" rows="2" placeholder='{"Authorization": "Bearer secret-token", "X-Api-Key": "123"}' class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-white font-mono">${escapeHtml(m.headers ? JSON.stringify(m.headers, null, 2) : '')}</textarea>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Request Body Payload (for POST, PUT, PATCH)</label>
+                  <textarea id="mBody" rows="2" placeholder='{"query": "healthcheck"}' class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-white font-mono">${escapeHtml(m.body || '')}</textarea>
+                </div>
+              </div>
+            </details>
+
             <div class="p-3.5 bg-slate-950/70 border border-slate-800 rounded-xl space-y-2">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-semibold text-slate-200 flex items-center gap-1.5">${Icons.shield} SSL Certificate Expiry Monitoring</span>
@@ -1416,6 +1443,12 @@ function renderModals() {
               </div>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
+              <select onchange="window.setMaintenanceMode('${mon.id}', this.value)" title="Snooze alerts during maintenance" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none transition-colors">
+                <option value="none" ${!mon.maintenanceUntil || new Date(mon.maintenanceUntil).getTime() <= Date.now() ? 'selected' : ''}>Alerts: Active</option>
+                <option value="1h" ${mon.maintenanceUntil && new Date(mon.maintenanceUntil).getTime() > Date.now() ? 'selected' : ''}>Snooze 1h</option>
+                <option value="4h">Snooze 4h</option>
+                <option value="24h">Snooze 24h</option>
+              </select>
               <button onclick="window.copyCurl('${mon.id}')" id="copyCurlBtn" title="Copy cURL terminal command" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors">
                 ${Icons.terminal} <span>Copy cURL</span>
               </button>
@@ -1515,8 +1548,11 @@ function renderModals() {
                         <td class="p-2.5"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${hb.status === 'UP' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">${hb.status}</span></td>
                         <td class="p-2.5 text-slate-300">${hb.statusCode || 'N/A'}</td>
                         <td class="p-2.5 text-white font-bold">${hb.latency} ms</td>
-                        <td class="p-2.5 text-slate-400 truncate max-w-xs font-sans">${escapeHtml(hb.message || 'OK')}</td>
-                        <td class="p-2.5 text-right text-slate-500 text-[11px]">${new Date(hb.timestamp).toLocaleTimeString()}</td>
+                        <td class="p-2.5 text-slate-400 max-w-xs font-sans">
+                          <div class="truncate">${escapeHtml(hb.message || 'OK')}</div>
+                          ${hb.responseSnippet ? `<details class="mt-1"><summary class="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer select-none">View Response</summary><pre class="mt-1 p-2 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap max-h-24">${escapeHtml(hb.responseSnippet)}</pre></details>` : ''}
+                        </td>
+                        <td class="p-2.5 text-right text-slate-500 text-[11px] whitespace-nowrap">${new Date(hb.timestamp).toLocaleTimeString()}</td>
                       </tr>
                     `
                       )
@@ -1830,6 +1866,19 @@ window.deleteMonitor = async (id) => {
   }
 };
 
+window.setMaintenanceMode = async (id, val) => {
+  SoundFX.play('click');
+  let maintenanceUntil = null;
+  const now = Date.now();
+  if (val === '1h') maintenanceUntil = new Date(now + 3600 * 1000).toISOString();
+  else if (val === '4h') maintenanceUntil = new Date(now + 4 * 3600 * 1000).toISOString();
+  else if (val === '24h') maintenanceUntil = new Date(now + 24 * 3600 * 1000).toISOString();
+
+  await api.updateMonitor(id, { maintenanceUntil });
+  SoundFX.play('success');
+  await fetchAllData();
+};
+
 window.saveMonitor = async (e) => {
   e.preventDefault();
   const name = document.getElementById('mName').value;
@@ -1843,6 +1892,18 @@ window.saveMonitor = async (e) => {
   const sslCheckEnabled = document.getElementById('mSslCheck').checked;
   const sslAlertDaysThreshold = Number(document.getElementById('mSslDays').value);
 
+  let headers = {};
+  const rawHeaders = document.getElementById('mHeaders')?.value.trim();
+  if (rawHeaders) {
+    try {
+      headers = JSON.parse(rawHeaders);
+    } catch {
+      alert('Invalid JSON in Custom Headers field. Please format as valid JSON object.');
+      return;
+    }
+  }
+  const body = document.getElementById('mBody')?.value.trim() || '';
+
   const payload = {
     name,
     url,
@@ -1854,6 +1915,8 @@ window.saveMonitor = async (e) => {
     keyword,
     sslCheckEnabled,
     sslAlertDaysThreshold,
+    headers,
+    body,
   };
 
   if (state.editingMonitor) {

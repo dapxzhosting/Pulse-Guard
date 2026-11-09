@@ -68,32 +68,54 @@ Ketika server atau API Anda mengalami gangguan (*downtime*) atau penurunan perfo
 ## ✨ Fitur-Fitur Unggulan
 
 ### 1. Pemantau Multi-Protokol & Assertion Fleksibel
-- Mendukung metode HTTP: `GET`, `POST`, `HEAD`, `PUT`.
-- Kustomisasi kode status HTTP yang diharapkan (misal `200`, `201`, `204`).
+- Mendukung metode HTTP: `GET`, `POST`, `HEAD`, `PUT`, `PATCH`.
+- Kustomisasi kode status HTTP yang diharapkan (misal `200`, `201`, `204`, `301`).
 - **Response Body Keyword Assertion**: Memvalidasi apakah respon server benar-benar mengandung kata kunci tertentu (misal `"status": "ok"` atau `"healthy"`), bukan halaman error generik.
-- Kustomisasi Request Headers & Request Body (JSON).
+- **Advanced HTTP Options (Custom Headers & Payload)**: Mendukung injection header kustom (misal `Authorization: Bearer <token>`, `X-Api-Key`) dan payload JSON body untuk endpoint REST API & GraphQL.
 
-### 2. Rincian Latensi Interaktif & Grafik SVG
+### 2. IP & Server Geolocation Details (DB-IP / ip-api)
+- Menampilkan resolusi DNS IPv4 target secara otomatis.
+- Metadata lokasi server lengkap: **IP Address, Hostname, ASN & ISP/Org, Negara & Bendera, Region, Kota, Zona Waktu, dan Koordinat**.
+- **Embedded OpenStreetMap**: Pratinjau peta interaktif langsung di modal detail monitor untuk mengetahui lokasi fisik data center server Anda.
+
+### 3. Maintenance Mode / Snooze Alerts
+- Pengguna dapat membisukan alert (*snooze*) sementara selama **1 Jam**, **4 Jam**, atau **24 Jam** saat melakukan pemeliharaan server (*scheduled maintenance*).
+- Menghindari spam alert ke Discord/Telegram/Email selama proses deployment, dan otomatis kembali aktif saat durasi pemeliharaan berakhir.
+
+### 4. Heartbeat Response Body Inspector
+- Riwayat log heartbeat kini dilengkapi pratinjau cuplikan respon (*response body snippet*).
+- Memudahkan proses *debugging* ketika server mengembalikan respon tak terduga (misal pesan error 500 atau 503).
+
+### 5. Rincian Latensi Interaktif & Grafik SVG
 - Grafik tren waktu respon dinamis (*SVG sparkline chart*) dengan gradien warna modern.
 - Menampilkan metrik **Min**, **Average**, dan **Max** respon server.
 - Visualisasi baris per baris untuk DNS, TCP, TLS, dan TTFB.
 
-### 3. Interactive 35-Slot Uptime Bar (BetterStack Style)
+### 6. Interactive 35-Slot Uptime Bar (BetterStack Style)
 - Setiap kartu monitor dilengkapi 35 slot baris ketersediaan harian.
 - Dilengkapi animasi hover skala dan tooltip interaktif yang menampilkan status operasional, nilai latensi, serta timestamp lengkap.
 
-### 4. Manajemen Insiden Otomatis & Manual
-- **Otomatis**: Tiket insiden terbuka saat terdeteksi *downtime* dan terselesaikan otomatis saat server pulih.
-- **Manual**: Pengguna dapat mendeklarasikan insiden terencana (misal pemeliharaan sistem atau *scheduled maintenance*) serta memposting catatan pembaruan investigasi (*Investigating*, *Identified*, *Monitoring*, *Resolved*).
+### 7. Export SLA Report (CSV) & One-Click Copy cURL
+- **Export SLA (CSV)**: Unduh laporan resmi ketersediaan SLA seluruh monitor atau per-monitor dalam format file `.csv`.
+- **Copy cURL**: Salin perintah cURL terminal lengkap dengan satu klik untuk mereplikasi probe jaringan langsung dari CLI.
 
-### 5. Multi-Channel Alert Integrations
+### 8. GSAP Spring Physics & Web Audio Micro-Interactions
+- **GSAP Fluid Transitions**: Kartu monitor masuk bertahap (*staggered entrance*), modal pop elastis gaya Framer Motion (`back.out(1.4)`), dan radar scanner berkedip di header.
+- **Interactive Mouse Spotlight**: Efek glowing radial emerald yang melacak posisi kursor mouse pengguna secara interaktif di atas kartu.
+- **Web Audio Sound Effects**: Umpan balik audio mikro futuristik saat mengklik tombol dan memeriksa kesehatan sistem, lengkap dengan tombol mute di navbar.
+
+### 9. Manajemen Insiden Otomatis & Manual
+- **Otomatis**: Tiket insiden terbuka saat terdeteksi *downtime* (aturan 2-strike anti-flapping) dan terselesaikan otomatis saat server pulih.
+- **Manual**: Pengguna dapat mendeklarasikan insiden terencana serta memposting catatan pembaruan investigasi (*Investigating*, *Identified*, *Monitoring*, *Resolved*).
+
+### 10. Multi-Channel Alert Integrations (Zero Dependency Email)
 - **Discord Webhook**: Notifikasi embed rapi lengkap dengan badge dan link ke sistem.
 - **Telegram Bot**: Terhubung via Bot Token & Chat ID.
-- **Email Alerts**: Notifikasi terstruktur ke alamat email teknis tim.
+- **Email Alerts**: Pengiriman email alert langsung melalui **Native TLS SMTP** (Gmail App Password, Outlook, Custom Mail Server) atau **Resend API**. Cukup dikonfigurasi sekali di server (`.env`), pengguna cukup memasukkan email tujuan di UI!
 - **Generic Webhook**: Siap diintegrasikan ke Slack, Zapier, Make, n8n, atau PagerDuty.
-- **Fitur Test Alert**: Tombol uji kirim untuk memastikan webhook valid sebelum terjadi kendala nyata.
+- **Fitur Test Alert**: Tombol uji kirim untuk memastikan webhook/email valid sebelum terjadi kendala nyata.
 
-### 6. Public Status Page Mandiri
+### 11. Public Status Page Mandiri
 - Halaman status yang dapat diakses publik tanpa perlu login admin (`/#/status`).
 - Menampilkan persentase uptime 30 hari kumulatif, banner kesehatan sistem (*All Systems Operational* / *Active Outage Detected*), dan daftar layanan yang dikelompokkan berdasarkan kategori.
 
@@ -142,6 +164,49 @@ Server akan aktif di:
 - **Admin Dashboard**: `http://localhost:3001`
 - **Public Status Page**: `http://localhost:3001/#/status`
 - **Health Check Endpoint**: `http://localhost:3001/api/health`
+
+---
+
+## ☁️ Panduan Hosting 24/7 (Production Deployment)
+
+Karena PulseGuard adalah bot pemantau ketersediaan, aplikasi **harus menyala 24/7 tanpa henti**. Hindari serverless (seperti Vercel Hobby) yang tertidur saat tidak ada request.
+
+### Opsi 1: VPS Linux (Ubuntu / Debian / CentOS) dengan PM2 (Paling Direkomendasikan)
+1. Buka terminal server VPS dan pasang Node.js & PM2:
+   ```bash
+   sudo apt update && sudo apt install -y nodejs npm
+   sudo npm install -g pm2
+   ```
+2. Clone repository & pasang dependencies:
+   ```bash
+   git clone https://github.com/dapxzhosting/Pulse-Guard.git
+   cd Pulse-Guard
+   npm install
+   npm run build
+   ```
+3. Siapkan file `.env` dengan kredensial pengirim email (misal Gmail SMTP):
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+4. Jalankan 24/7 dengan PM2:
+   ```bash
+   pm2 start server/index.js --name "pulseguard"
+   pm2 startup
+   pm2 save
+   ```
+
+### Opsi 2: Railway.app (Deploy Otomatis dari GitHub)
+1. Buka [Railway.app](https://railway.app) dan login dengan akun GitHub.
+2. Pilih **New Project** ➔ **Deploy from GitHub repo** ➔ pilih `Pulse-Guard`.
+3. Masuk ke menu **Variables**, tambahkan environment variable:
+   - `PORT`: `3001`
+   - `SMTP_HOST`: `smtp.gmail.com`
+   - `SMTP_PORT`: `465`
+   - `SMTP_USER`: `email-anda@gmail.com`
+   - `SMTP_PASS`: `kata-sandi-aplikasi-gmail`
+   - `SMTP_FROM`: `PulseGuard <email-anda@gmail.com>`
+4. Di tab **Settings**, klik **Generate Domain** untuk mendapatkan URL publik gratis berprotokol HTTPS.
 
 ---
 

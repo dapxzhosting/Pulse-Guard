@@ -98,6 +98,7 @@ class BackgroundWorker {
         latency: checkResult.latency,
         latencyBreakdown: checkResult.latencyBreakdown,
         message: checkResult.message,
+        responseSnippet: checkResult.responseSnippet,
         ssl: sslInfo,
         timestamp: now,
       });
